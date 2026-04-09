@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 
 	"gofr.dev/pkg/gofr"
 
@@ -9,6 +10,7 @@ import (
 )
 
 const defaultStaticFilePath = `./static`
+const defaultExtensionHTML = ".html"
 const indexHTML = "/index.html"
 const rootPath = "/"
 
@@ -16,9 +18,9 @@ func main() {
 	app := gofr.New()
 
 	staticFilePath := app.Config.GetOrDefault("STATIC_DIR_PATH", defaultStaticFilePath)
-	spaMode := app.Config.GetOrDefault("SPA_MODE", "false") == "true"
+	spaMode, _ := strconv.ParseBool(app.Config.GetOrDefault("SPA_MODE", "false"))
 
-	defaultExtension := app.Config.GetOrDefault("DEFAULT_EXTENSION", ".html")
+	defaultExtension := app.Config.GetOrDefault("DEFAULT_EXTENSION", defaultExtensionHTML)
 
 	handler := &staticFileHandler{
 		staticFilePath:   staticFilePath,

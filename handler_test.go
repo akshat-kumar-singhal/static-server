@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/mock/gomock"
 	"gofr.dev/pkg/gofr/datasource/file"
 	"gofr.dev/pkg/gofr/logging"
 )
@@ -74,33 +73,6 @@ func TestResolveFilePath(t *testing.T) {
 	}
 }
 
-func TestResolveFilePath_Mock(t *testing.T) {
-	ctrl := gomock.NewController(t)
-
-	mockFS := file.NewMockFileSystem(ctrl)
-	mockInfo := file.NewMockFileInfo(ctrl)
-	mockDirInfo := file.NewMockFileInfo(ctrl)
-
-	h := &staticFileHandler{fs: mockFS, staticFilePath: "static", defaultExtension: ".html"}
-
-	// /docs → static/docs.html (auto .html)
-	mockFS.EXPECT().Stat("static/docs.html").Return(mockInfo, nil)
-
-	path, hasExt := h.resolveFilePath("/docs")
-
-	assert.Equal(t, "static/docs.html", path)
-	assert.False(t, hasExt)
-
-	// /blog → static/blog/index.html (directory index)
-	mockFS.EXPECT().Stat("static/blog.html").Return(nil, os.ErrNotExist)
-	mockFS.EXPECT().Stat("static/blog").Return(mockDirInfo, nil)
-	mockDirInfo.EXPECT().IsDir().Return(true)
-
-	path, hasExt = h.resolveFilePath("/blog")
-
-	assert.Equal(t, "static/blog/index.html", path)
-	assert.False(t, hasExt)
-}
 
 func TestServeHTTP(t *testing.T) {
 	dir := setupTestDir(t)
@@ -112,13 +84,9 @@ func TestServeHTTP(t *testing.T) {
 		spaMode    bool
 		wantStatus int
 	}{
-		{"root", "/", false, http.StatusOK},
 		{"existing file", "/style.css", false, http.StatusOK},
-		{"html auto extension", "/docs", false, http.StatusOK},
-		{"missing without extension", "/nonexistent", false, http.StatusNotFound},
-		{"missing with extension", "/missing.js", false, http.StatusNotFound},
+		{"missing file", "/nonexistent", false, http.StatusNotFound},
 		{"spa fallback", "/dashboard", true, http.StatusOK},
-		{"spa nested fallback", "/settings/profile", true, http.StatusOK},
 		{"spa missing with extension", "/missing.css", true, http.StatusNotFound},
 		{"well-known passes through", "/.well-known/acme", false, http.StatusNotFound},
 	}

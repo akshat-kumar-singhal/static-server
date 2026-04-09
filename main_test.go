@@ -3,50 +3,27 @@ package main
 import (
 	"context"
 	"net/http"
-	"os"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
-	"time"
+
+	"gofr.dev/pkg/gofr/datasource/file"
+	"gofr.dev/pkg/gofr/logging"
 )
 
 func TestServer(t *testing.T) {
-	// Create a temporary directory
-	//nolint:staticcheck // Ignore as we are testing the server
-	tempDir := os.TempDir()
+	dir := setupTestDir(t)
+	fs := file.New(logging.NewMockLogger(logging.ERROR))
 
-	// Create an "index" directory
-	indexDirPath := filepath.Join(tempDir, "docs")
-	if err := os.MkdirAll(indexDirPath, 0600); err != nil {
-		t.Fatalf("Failed to create directory %s: %v", indexDirPath, err)
+	handler := &staticFileHandler{
+		fs:               fs,
+		staticFilePath:   dir,
+		defaultExtension: ".html",
+		next:             http.NotFoundHandler(),
 	}
 
-	// Create necessary files
-	files := []struct {
-		name    string
-		content string
-	}{
-		{"/index.html", "<html><body>Index</body></html>"},
-		{"/404.html", "<html><body>404 Not Found</body></html>"},
-		{"/docs.html", "<html><body>Index</body></html>"},
-	}
-
-	for _, file := range files {
-		filePath := filepath.Join(tempDir, file.name)
-		if err := os.MkdirAll(filepath.Dir(filePath), 0600); err != nil {
-			t.Fatalf("Failed to create dir for file %s: %v", file.name, err)
-		}
-
-		if err := os.WriteFile(filePath, []byte(file.content), 0600); err != nil {
-			t.Fatalf("Failed to write file %s: %v", file.name, err)
-		}
-	}
-
-	// Set the environment variable for the static file path
-	t.Setenv("STATIC_DIR_PATH", tempDir)
-
-	go main()
-
-	time.Sleep(3 * time.Second)
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
 
 	tests := []struct {
 		path       string
@@ -56,20 +33,18 @@ func TestServer(t *testing.T) {
 		{"/docs", http.StatusOK},
 		{"/index", http.StatusOK},
 		{"/index/", http.StatusOK},
-		{tempDir + "/index.html", http.StatusNotFound},
+		{filepath.Join(dir, "index.html"), http.StatusNotFound},
 		{"/index.html", http.StatusOK},
 		{"/nonexistent", http.StatusNotFound},
 	}
 
 	for _, test := range tests {
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:8000"+test.path, http.NoBody)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+test.path, http.NoBody)
 		if err != nil {
 			t.Fatalf("Failed to create request: %v", err)
 		}
 
-		client := &http.Client{}
-
-		resp, err := client.Do(req)
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("Failed to perform request: %v", err)
 		}
@@ -80,6 +55,4 @@ func TestServer(t *testing.T) {
 
 		_ = resp.Body.Close()
 	}
-
-	_ = os.RemoveAll(tempDir) //nolint:staticcheck // Intentionally removing test temp directory
 }

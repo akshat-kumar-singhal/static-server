@@ -32,9 +32,8 @@ func (h *staticFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.WriteHeader(http.StatusNotFound)
-
-		http.ServeFile(w, r, filepath.Join(h.staticFilePath, "404.html"))
+		http.ServeFile(&statusOverrideWriter{ResponseWriter: w, status: http.StatusNotFound}, r,
+			filepath.Join(h.staticFilePath, "404.html"))
 
 		return
 	}
@@ -58,4 +57,13 @@ func (h *staticFileHandler) resolveFilePath(urlPath string) (string, bool) {
 	}
 
 	return filePath, hasExtension
+}
+
+type statusOverrideWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusOverrideWriter) WriteHeader(int) {
+	w.ResponseWriter.WriteHeader(w.status)
 }
