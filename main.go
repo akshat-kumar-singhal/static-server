@@ -40,7 +40,7 @@ func main() {
 
 	app.UseMiddleware(func(next http.Handler) http.Handler {
 		handler.next = next
-		return handler
+		return http.HandlerFunc(handler.ServeHTTP)
 	})
 
 	app.AddStaticFiles("/", staticFilePath)

@@ -43,7 +43,7 @@ func setupTestDir(t *testing.T) string {
 
 func TestResolveFilePath(t *testing.T) {
 	dir := setupTestDir(t)
-	fs := file.New(logging.NewMockLogger(logging.ERROR))
+	fs := file.NewLocalFileSystem(logging.NewMockLogger(logging.ERROR))
 
 	tests := []struct {
 		name             string
@@ -73,10 +73,9 @@ func TestResolveFilePath(t *testing.T) {
 	}
 }
 
-
 func TestServeHTTP(t *testing.T) {
 	dir := setupTestDir(t)
-	fs := file.New(logging.NewMockLogger(logging.ERROR))
+	fs := file.NewLocalFileSystem(logging.NewMockLogger(logging.ERROR))
 
 	tests := []struct {
 		name       string

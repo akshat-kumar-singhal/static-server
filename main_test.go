@@ -13,7 +13,7 @@ import (
 
 func TestServer(t *testing.T) {
 	dir := setupTestDir(t)
-	fs := file.New(logging.NewMockLogger(logging.ERROR))
+	fs := file.NewLocalFileSystem(logging.NewMockLogger(logging.ERROR))
 
 	handler := &staticFileHandler{
 		fs:               fs,
