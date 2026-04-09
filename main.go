@@ -10,8 +10,8 @@ import (
 )
 
 const defaultStaticFilePath = `./static`
-const defaultExtensionHTML = ".html"
 const indexHTML = "/index.html"
+const htmlExtension = ".html"
 const rootPath = "/"
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	staticFilePath := app.Config.GetOrDefault("STATIC_DIR_PATH", defaultStaticFilePath)
 	spaMode, _ := strconv.ParseBool(app.Config.GetOrDefault("SPA_MODE", "false"))
 
-	defaultExtension := app.Config.GetOrDefault("DEFAULT_EXTENSION", defaultExtensionHTML)
+	defaultExtension := app.Config.GetOrDefault("DEFAULT_EXTENSION", htmlExtension)
 
 	handler := &staticFileHandler{
 		staticFilePath:   staticFilePath,
