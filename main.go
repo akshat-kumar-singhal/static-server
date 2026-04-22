@@ -2,10 +2,7 @@ package main
 
 import (
 	"net/http"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
+	"strconv"
 
 	"gofr.dev/pkg/gofr"
 
@@ -20,7 +17,20 @@ const rootPath = "/"
 func main() {
 	app := gofr.New()
 
+	staticFilePath := app.Config.GetOrDefault("STATIC_DIR_PATH", defaultStaticFilePath)
+	spaMode, _ := strconv.ParseBool(app.Config.GetOrDefault("SPA_MODE", "false"))
+
+	defaultExtension := app.Config.GetOrDefault("DEFAULT_EXTENSION", htmlExtension)
+
+	handler := &staticFileHandler{
+		staticFilePath:   staticFilePath,
+		spaMode:          spaMode,
+		defaultExtension: defaultExtension,
+	}
+
 	app.OnStart(func(ctx *gofr.Context) error {
+		handler.fs = ctx.File
+
 		if err := config.HydrateFile(ctx.File, app.Config); err != nil {
 			ctx.Logger.Error(err.Error())
 		}
@@ -28,43 +38,9 @@ func main() {
 		return nil
 	})
 
-	staticFilePath := app.Config.GetOrDefault("STATIC_DIR_PATH", defaultStaticFilePath)
-
-	app.UseMiddleware(func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.Contains(r.URL.Path, "/.well-known/") {
-				h.ServeHTTP(w, r)
-
-				return
-			}
-
-			filePath := filepath.Join(staticFilePath, r.URL.Path)
-
-			// check if the path has a file extension
-			ok, _ := regexp.MatchString(`\.\S+$`, filePath)
-
-			if r.URL.Path == rootPath {
-				filePath += indexHTML
-			} else if !ok {
-				if _, err := os.Stat(filePath + ".html"); err == nil {
-					filePath += htmlExtension
-				} else if stat, err := os.Stat(filePath); err == nil && stat.IsDir() {
-					filePath += indexHTML
-				}
-			}
-
-			if _, err := os.Stat(filePath); os.IsNotExist(err) {
-				w.WriteHeader(http.StatusNotFound)
-
-				filePath = filepath.Join(staticFilePath, "404.html")
-
-				http.ServeFile(w, r, filePath)
-
-				return
-			}
-
-			http.ServeFile(w, r, filePath)
-		})
+	app.UseMiddleware(func(next http.Handler) http.Handler {
+		handler.next = next
+		return http.HandlerFunc(handler.ServeHTTP)
 	})
 
 	app.AddStaticFiles("/", staticFilePath)
